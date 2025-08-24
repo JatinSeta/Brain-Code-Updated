@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Js Quiz with EmailJS</title>
+  <style>
+    /* Your existing CSS styles (shortened here for brevity) */
+    * { margin:0; padding:0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .quiz-container {
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 25px;
+      padding: 40px 30px;
+      max-width: 600px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    .quiz-title {
+      color: #764ba2;
+      font-size: 2.5rem;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    #question-text {
+      color: #333;
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 30px;
+      min-height: 100px;
+    }
+    #options-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+    .option-btn {
+      padding: 10px 20px;
+      font-size: 1rem;
+      cursor: pointer;
+      border: 2px solid #333;
+      border-radius: 5px;
+      background-color: white;
+      text-align: left;
+      transition: background-color 0.3s ease;
+    }
+    .option-btn.selected { background-color: #ffd966; border-color: #b38f00; }
+    .option-btn.correct { background-color: #8bc34a; border-color: #4caf50; color: white; }
+    .option-btn.wrong { background-color: #f44336; border-color: #d32f2f; color: white; }
+    .option-btn:disabled { cursor: default; opacity: 0.8; }
+    #feedback {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin: 20px 0;
+      min-height: 30px;
+      color: #333;
+    }
+    #feedback.correct { color: #4caf50; }
+    #feedback.wrong { color: #f44336; }
+    #next-btn, #send-email-btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      border-radius: 25px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 10px;
+      display: none;
+    }
+    #next-btn:hover, #send-email-btn:hover { transform: translateY(-2px); }
+    #score {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      padding: 25px;
+      border-radius: 15px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin-top: 20px;
+      display: none;
+    }
+    #page-back-btn {
+  position: absolute; /* Position the button relative to the body */
+  top: 20px;          /* Space from the top */
+  left: 20px;         /* Space from the left */
+ background: linear-gradient(135deg, #764ba2, #554cb5);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 25px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-block;
+  z-index: 10;        /* Ensure the button is above other elements */
+}
+
+#page-back-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px #fff;
+}
+  </style>
+</head>
+<body>
+
+  <div class="quiz-container" role="main" aria-label="JavaScript Quiz">
+    <h1 class="quiz-title">JavaScript Quiz</h1>
+
+     <button id="page-back-btn" type="button" aria-label="Go Back to Previous Page">⬅️ Go Back</button>
+
+
+    <div id="question-text" aria-live="polite">Loading questions...</div>
+
+    <div id="options-container" role="list" aria-label="Answer options"></div>
+
+    <div id="feedback" aria-live="assertive"></div>
+
+    <button id="next-btn" type="button" aria-label="Next Question">Next Question ➡️</button>
+
+    <div id="score" role="status" aria-live="polite"></div>
+    <button id="send-email-btn" type="button" aria-label="Send Email with Quiz Results">Send Email with Results</button>
+  </div>
+
+  <!-- EmailJS CDN -->
+  <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+
+  <!-- Firebase SDK -->
+ <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, query, where, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    // Initialize EmailJS (replace with your real Public Key)
+    emailjs.init("rLcng1dUdWCkdBLfi");
+    const pageBackBtn = document.getElementById("page-back-btn");
+
+    // Firebase configuration (replace with your config)
+    const firebaseConfig = {
+      apiKey: "AIzaSyBtiBdHwYCV7vkHiuGZvHij7UxphP4g54E",
+      authDomain: "questionpro-99817.firebaseapp.com",
+      projectId: "questionpro-99817",
+      storageBucket: "questionpro-99817.appspot.com",
+      messagingSenderId: "70423030493",
+      appId: "1:70423030493:web:ae543436fc71bdab180934",
+      measurementId: "G-LL4TBWBTML"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    // DOM elements
+    const questionEl = document.getElementById("question-text");
+    const optionsEl = document.getElementById("options-container");
+    const feedbackEl = document.getElementById("feedback");
+    const nextBtn = document.getElementById("next-btn");
+    const scoreBoxEl = document.getElementById("score");
+    const sendEmailBtn = document.getElementById("send-email-btn");
+
+    // State variables
+    let questions = [];
+    let index = 0;
+    let score = 0;
+    let selectedAnswer = null;
+    let userEmail = "";
+
+    const category = "JavaScript";
+
+    // Check auth state
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        userEmail = user.email;
+        console.log("User email:", userEmail);
+        loadQuestions();
+      } else {
+        alert("Please log in first!");
+        questionEl.textContent = "Please log in to take the quiz.";
+        nextBtn.style.display = "none";
+      }
+    });
+
+    // Load questions from Firestore
+    async function loadQuestions() {
+      try {
+        questionEl.textContent = "Loading questions...";
+        const q = query(collection(db, "questions"), where("category", "==", category));
+        const snap = await getDocs(q);
+
+        questions = snap.docs.map(doc => {
+          const data = doc.data();
+          return {
+            question: data.question,
+            options: data.options,
+            correctAnswers: (data.correctAnswers || []).map(a => a.toUpperCase()),
+            type: data.type || "single"
+          };
+        });
+
+        if (questions.length === 0) {
+          questionEl.textContent = `❌ No questions found for "${category}"`;
+          nextBtn.style.display = "none";
+          return;
+        }
+
+        index = 0;
+        score = 0;
+        nextBtn.style.display = "inline-block";
+        showQuestion();
+      } catch (err) {
+        console.error("Firestore error:", err);
+        questionEl.textContent = "⚠️ Error loading questions.";
+      }
+    }
+
+    // Show current question
+    function showQuestion() {
+      selectedAnswer = null;
+      feedbackEl.textContent = "";
+      feedbackEl.className = "";
+      nextBtn.style.display = "inline-block";
+
+      const q = questions[index];
+      questionEl.textContent = q.question || "Question missing";
+      optionsEl.innerHTML = "";
+
+      Object.entries(q.options || {}).forEach(([letter, optionText]) => {
+        const btn = document.createElement("button");
+        btn.className = "option-btn";
+        btn.textContent = `${letter}: ${optionText}`;
+        btn.onclick = () => selectAnswer(letter, btn);
+        optionsEl.appendChild(btn);
+      });
+
+      nextBtn.textContent = index === questions.length - 1 ? "Finish" : "Next Question ➡️";
+      nextBtn.onclick = () => {
+        if (!selectedAnswer) {
+          alert("Please select an option!");
+          return;
+        }
+        checkAnswer();
+      };
+    }
+
+    // Select an answer
+    function selectAnswer(letter, btn) {
+      [...optionsEl.children].forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+      selectedAnswer = letter;
+    }
+
+    // Check answer and show feedback
+    function checkAnswer() {
+      const q = questions[index];
+      const correctSet = new Set(q.correctAnswers);
+
+      [...optionsEl.children].forEach(btn => {
+        const letter = btn.textContent.split(":")[0];
+        if (correctSet.has(letter)) {
+          btn.classList.add("correct");
+        }
+        btn.disabled = true;
+      });
+
+      if (correctSet.has(selectedAnswer)) {
+        feedbackEl.textContent = "✅ Correct!";
+        feedbackEl.classList.add("correct");
+        score++;
+      } else {
+        [...optionsEl.children].forEach(btn => {
+          const letter = btn.textContent.split(":")[0];
+          if (letter === selectedAnswer) {
+            btn.classList.add("wrong");
+          }
+        });
+        feedbackEl.textContent = `❌ Correct answer: ${[...correctSet].join(", ")}`;
+        feedbackEl.classList.add("wrong");
+      }
+
+      index++;
+
+      if (index >= questions.length) {
+        nextBtn.textContent = "Finish";
+        nextBtn.onclick = finishQuiz;
+      } else {
+        nextBtn.textContent = "Next Question ➡️";
+        nextBtn.onclick = showQuestion;
+      }
+    }
+
+    // Finish quiz and show results
+    function finishQuiz() {
+      questionEl.textContent = "🎉 Quiz Completed!";
+      optionsEl.innerHTML = "";
+      feedbackEl.textContent = "";
+      nextBtn.style.display = "none";
+
+      const percentage = ((score / questions.length) * 100).toFixed(2);
+      scoreBoxEl.style.display = "block";
+      scoreBoxEl.textContent = `🏆 Final Score: ${score} / ${questions.length} (${percentage}%)`;
+      sendEmailBtn.style.display = "inline-block";
+
+      // Save the results to Firestore
+      saveResultsToFirestore();
+      
+    }
+
+    // Save results to Firestore
+    async function saveResultsToFirestore() {
+      try {
+        await addDoc(collection(db, "quizResults"), {
+          email: userEmail,
+          category,
+          score,
+          correctAnswers: score,
+          wrongAnswers: questions.length - score,
+          timestamp: new Date()
+        });
+        console.log("✅ Results saved to Firestore");
+      } catch (e) {
+        console.error("❌ Error saving results to Firestore:", e);
+      }
+    }
+
+    // Send results via EmailJS
+    sendEmailBtn.addEventListener("click", () => {
+      if (!userEmail) {
+        alert("User email not found. Please log in.");
+        return;
+      }
+
+      const total = questions.length;
+      const correctAnswers = score;
+      const wrongAnswers = total - score;
+      const percentage = ((score / total) * 100).toFixed(2);
+
+      const emailData = {
+        quiz_title: `${category} Quiz`,
+        date: new Date().toLocaleDateString(),
+        total_questions: total.toString(),
+        correct_answers: correctAnswers.toString(),
+        wrong_answers: wrongAnswers.toString(),
+        score_percentage: `${percentage}%`,
+        to_email: userEmail
+      };
+
+      emailjs.send("service_a9z9syt", "template_f2nreet", emailData)
+        .then(response => {
+          console.log("✅ Email sent:", response);
+          alert("✅ Results sent to your email!");
+          sendEmailBtn.style.display = "none";
+        })
+        .catch(err => {
+          console.error("❌ EmailJS error:", err);
+          alert("Failed to send email. Check console for details.");
+        });
+    });
+
+    // Handle page back button
+    pageBackBtn.addEventListener("click", () => {
+      window.history.back();  // Go back to the previous page
+    });
+    
+  </script>
+</body>
+</html>
+

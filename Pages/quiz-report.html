@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quiz Results</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f4f4f4;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    h1 {
+      text-align: center;
+      margin: 20px;
+      color: #222;
+    }
+    .main-container {
+      display: flex;
+      justify-content: space-between;
+      padding: 20px;
+    }
+    .result-wrapper {
+      flex: 3;
+    }
+    .result-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+    .pagination {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .pagination button {
+      padding: 8px 14px;
+      margin: 0 5px;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .pagination button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .result-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      width: 300px;
+    }
+    .result-card h3 {
+      margin-bottom: 10px;
+    }
+    .result-card p {
+      margin: 5px 0;
+      color: #555;
+    }
+    .result-actions {
+      margin-top: 15px;
+      text-align: right;
+    }
+    .result-actions button {
+      background: #34d399;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    .result-actions button:hover {
+      background: #28a745;
+    }
+    .badge {
+      background: #34d399;
+      color: #064e3b;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: bold;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+    .category-sidebar {
+      flex: 1;
+      margin-left: 20px;
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      height: fit-content;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .category-sidebar h2 {
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    .category-btn {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+      background: #e2e8f0;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .category-btn:hover {
+      background: #cbd5e1;
+    }
+    @media(max-width: 768px) {
+      .main-container {
+        flex-direction: column;
+      }
+      .category-sidebar {
+        margin: 0 auto 20px;
+        width: 90%;
+      }
+      .result-container {
+        justify-content: center;
+      }
+    }
+  </style>
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <!-- jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+
+<body>
+  <h1>Quiz Results</h1>
+
+  <div class="main-container">
+    <div class="result-wrapper">
+      <div class="result-container" id="results">
+        <p>Select a category to view your results.</p>
+      </div>
+      <div class="pagination" id="pagination" style="display: none;">
+        <button id="prevBtn" onclick="prevPage()">Prev</button>
+        <button id="nextBtn" onclick="nextPage()">Next</button>
+      </div>
+    </div>
+
+    <div class="category-sidebar">
+      <h2>All Categories</h2>
+        <button class="category-btn" onclick="loadCategoryResults('All')">All Categories</button>
+        <button class="category-btn" onclick="loadCategoryResults('JavaScript')">JavaScript</button>
+      <button class="category-btn" onclick="loadCategoryResults('Java')">Java</button>
+      <button class="category-btn" onclick="loadCategoryResults('C')">C</button>
+      <button class="category-btn" onclick="loadCategoryResults('C++')">C++</button>
+      <button class="category-btn" onclick="loadCategoryResults('HTML')">HTML</button>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBtiBdHwYCV7vkHiuGZvHij7UxphP4g54E",
+      authDomain: "questionpro-99817.firebaseapp.com",
+      projectId: "questionpro-99817",
+      storageBucket: "questionpro-99817.appspot.com",
+      messagingSenderId: "70423030493",
+      appId: "1:70423030493:web:ae543436fc71bdab180934"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    const resultsDiv = document.getElementById("results");
+    const paginationDiv = document.getElementById("pagination");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    let results = [];
+    let currentPage = 1;
+    const resultsPerPage = 4;
+
+    function renderResults() {
+      const start = (currentPage - 1) * resultsPerPage;
+      const end = start + resultsPerPage;
+      const paginatedResults = results.slice(start, end);
+
+      if (paginatedResults.length === 0) {
+        resultsDiv.innerHTML = "<p>No results to display on this page.</p>";
+        paginationDiv.style.display = "none";
+        return;
+      }
+
+      let html = '';
+      paginatedResults.forEach(data => {
+        html += `
+          <div class="result-card">
+            ${data.isNew ? '<span class="badge">New</span>' : ''}
+            <h3>Quiz Result</h3>
+            <p><strong>Email:</strong> ${data.email}</p>
+            <p><strong>Category:</strong> ${data.category}</p>
+            <p><strong>Score:</strong> ${data.score}</p>
+            <p><strong>Correct Answers:</strong> ${data.correctAnswers}</p>
+            <p><strong>Wrong Answers:</strong> ${data.wrongAnswers}</p>
+            <p><strong>Timestamp:</strong> ${data.timestamp?.toDate?.().toLocaleString() || "N/A"}</p>
+            <div class="result-actions">
+              <button onclick="downloadPDF(this)">Download PDF</button>
+            </div>
+          </div>
+        `;
+      });
+
+      resultsDiv.innerHTML = html;
+      prevBtn.disabled = currentPage === 1;
+      nextBtn.disabled = end >= results.length;
+      paginationDiv.style.display = "block";
+    }
+
+    function nextPage() {
+      if(currentPage * resultsPerPage < results.length) {
+        currentPage++;
+        renderResults();
+      }
+    }
+
+    function prevPage() {
+      if(currentPage > 1) {
+        currentPage--;
+        renderResults();
+      }
+    }
+
+    async function loadCategoryResults(category) {
+    const user = firebase.auth().currentUser;
+
+    if (!user) {
+        resultsDiv.innerHTML = "<p>You must be logged in to view your quiz results.</p>";
+        paginationDiv.style.display = "none";
+        return;
+    }
+
+    const email = user.email;
+    try {
+        let query = db.collection("quizResults").where("email", "==", email);
+
+        if (category !== 'All') {
+        query = query.where("category", "==", category);
+        }
+
+        const snapshot = await query.get();
+
+        if (snapshot.empty) {
+        resultsDiv.innerHTML = `<p>No results found${category !== 'All' ? ' for category: <strong>' + category + '</strong>' : ''}.</p>`;
+        paginationDiv.style.display = "none";
+        return;
+        }
+
+        results = [];
+        currentPage = 1;
+
+        snapshot.forEach(doc => {
+        let data = doc.data();
+        data.id = doc.id;  // Store doc ID
+        results.push(data);
+        });
+
+        renderResults();
+    } catch(error) {
+        resultsDiv.innerHTML = `<p>Error loading results: ${error.message}</p>`;
+        paginationDiv.style.display = "none";
+    }
+    }
+
+function renderResults() {
+  const start = (currentPage - 1) * resultsPerPage;
+  const end = start + resultsPerPage;
+  const paginatedResults = results.slice(start, end);
+
+  if (paginatedResults.length === 0) {
+    resultsDiv.innerHTML = "<p>No results to display on this page.</p>";
+    paginationDiv.style.display = "none";
+    return;
+  }
+
+  let html = '';
+  paginatedResults.forEach(data => {
+    html += `
+      <div class="result-card" data-id="${data.id}">
+        ${data.isNew ? '<span class="badge">New</span>' : ''}
+        <h3>Quiz Result</h3>
+        <p><strong>Email:</strong> ${data.email}</p>
+        <p><strong>Category:</strong> ${data.category}</p>
+        <p><strong>Score:</strong> ${data.score}</p>
+        <p><strong>Correct Answers:</strong> ${data.correctAnswers}</p>
+        <p><strong>Wrong Answers:</strong> ${data.wrongAnswers}</p>
+        <p><strong>Timestamp:</strong> ${data.timestamp?.toDate?.().toLocaleString() || "N/A"}</p>
+        <div class="result-actions">
+          <button onclick="downloadPDF(this)">Download PDF</button>
+        </div>
+      </div>
+    `;
+  });
+
+  resultsDiv.innerHTML = html;
+  prevBtn.disabled = currentPage === 1;
+  nextBtn.disabled = end >= results.length;
+  paginationDiv.style.display = "block";
+}
+
+async function downloadPDF(buttonElement) {
+  const resultCard = buttonElement.closest('.result-card');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Extract text from card (hide "New" badge in PDF)
+  const email = resultCard.querySelector("p:nth-of-type(1)").innerText;
+  const category = resultCard.querySelector("p:nth-of-type(2)").innerText;
+  const score = resultCard.querySelector("p:nth-of-type(3)").innerText;
+  const correctAnswers = resultCard.querySelector("p:nth-of-type(4)").innerText;
+  const wrongAnswers = resultCard.querySelector("p:nth-of-type(5)").innerText;
+  const timestamp = resultCard.querySelector("p:nth-of-type(6)").innerText;
+
+  // Write content to PDF
+  let y = 20;
+  doc.setFontSize(18);
+  doc.text("Quiz Result", 105, y, null, null, "center");
+  y += 10;
+  doc.setFontSize(12);
+  doc.text(email, 20, y);
+  y += 8;
+  doc.text(category, 20, y);
+  y += 8;
+  doc.text(score, 20, y);
+  y += 8;
+  doc.text(correctAnswers, 20, y);
+  y += 8;
+  doc.text(wrongAnswers, 20, y);
+  y += 8;
+  doc.text(timestamp, 20, y);
+
+  doc.save("quiz-result.pdf");
+
+  // Now remove or update isNew field in Firestore for this doc
+  const docId = resultCard.getAttribute('data-id');
+  if (docId) {
+    try {
+      await db.collection("quizResults").doc(docId).update({
+        isNew: false
+      });
+      // Remove "New" badge from UI
+      const badge = resultCard.querySelector(".badge");
+      if (badge) badge.remove();
+    } catch (error) {
+      console.error("Error updating isNew field:", error);
+    }
+  }
+}
+
+// Load all results by default on auth state
+auth.onAuthStateChanged(user => {
+  if (user) {
+    loadCategoryResults('All');
+  } else {
+    resultsDiv.innerHTML = '<p>Please log in to view your quiz results.</p>';
+    paginationDiv.style.display = "none";
+  }
+});
+
+    async function downloadPDF(buttonElement) {
+      const resultCard = buttonElement.closest('.result-card');
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      // Extract text from card (hide "New" badge in PDF)
+      const email = resultCard.querySelector("p:nth-of-type(1)").innerText;
+      const category = resultCard.querySelector("p:nth-of-type(2)").innerText;
+      const score = resultCard.querySelector("p:nth-of-type(3)").innerText;
+      const correctAnswers = resultCard.querySelector("p:nth-of-type(4)").innerText;
+      const wrongAnswers = resultCard.querySelector("p:nth-of-type(5)").innerText;
+      const timestamp = resultCard.querySelector("p:nth-of-type(6)").innerText;
+
+      // Write content to PDF
+      let y = 20;
+      doc.setFontSize(18);
+      doc.text("Quiz Result", 105, y, null, null, "center");
+      y += 10;
+      doc.setFontSize(12);
+      doc.text(email, 20, y);
+      y += 8;
+      doc.text(category, 20, y);
+      y += 8;
+      doc.text(score, 20, y);
+      y += 8;
+      doc.text(correctAnswers, 20, y);
+      y += 8;
+      doc.text(wrongAnswers, 20, y);
+      y += 8;
+      doc.text(timestamp, 20, y);
+
+      doc.save("quiz-result.pdf");
+    }
+
+    // Example: Simple Firebase Auth state listener (user must be logged in)
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        resultsDiv.innerHTML = '<p>Select a category from the right sidebar.</p>';
+      } else {
+        resultsDiv.innerHTML = '<p>Please log in to view your quiz results.</p>';
+        paginationDiv.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
