@@ -337,38 +337,65 @@
     }
 
     // Send results via EmailJS
-    sendEmailBtn.addEventListener("click", () => {
-      if (!userEmail) {
-        alert("User email not found. Please log in.");
-        return;
-      }
+sendEmailBtn.addEventListener("click", async () => {
+  if (!userEmail) {
+    alert("User email not found. Please log in.");
+    return;
+  }
 
-      const total = questions.length;
-      const correctAnswers = score;
-      const wrongAnswers = total - score;
-      const percentage = ((score / total) * 100).toFixed(2);
+  const total = questions.length;
+  const correctAnswers = score;
+  const wrongAnswers = total - score;
+  const percentage = ((score / total) * 100).toFixed(2);
+async function generatePdfReport(score, total, category) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
 
-      const emailData = {
-        quiz_title: `${category} Quiz`,
-        date: new Date().toLocaleDateString(),
-        total_questions: total.toString(),
-        correct_answers: correctAnswers.toString(),
-        wrong_answers: wrongAnswers.toString(),
-        score_percentage: `${percentage}%`,
-        to_email: userEmail
-      };
+  const percentage = ((score / total) * 100).toFixed(2);
 
-      emailjs.send("service_a9z9syt", "template_f2nreet", emailData)
-        .then(response => {
-          console.log("✅ Email sent:", response);
-          alert("✅ Results sent to your email!");
-          sendEmailBtn.style.display = "none";
-        })
-        .catch(err => {
-          console.error("❌ EmailJS error:", err);
-          alert("Failed to send email. Check console for details.");
-        });
+  doc.setFontSize(18);
+  doc.text(`${category} Quiz Report`, 20, 20);
+
+  doc.setFontSize(14);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 40);
+  doc.text(`Total Questions: ${total}`, 20, 50);
+  doc.text(`Correct Answers: ${score}`, 20, 60);
+  doc.text(`Wrong Answers: ${total - score}`, 20, 70);
+  doc.text(`Score: ${percentage}%`, 20, 80);
+
+  // Convert PDF to Blob URL
+  const pdfBlob = doc.output("blob");
+  return URL.createObjectURL(pdfBlob); // This is your custom PDF link
+}
+  
+
+  // ⬇️ Generate PDF and get link
+  const reportLink = await generatePdfReport(correctAnswers, total, category);
+
+  const emailData = {
+    quiz_title: `${category} Quiz`,
+    date: new Date().toLocaleDateString(),
+    total_questions: total.toString(),
+    correct_answers: correctAnswers.toString(),
+    wrong_answers: wrongAnswers.toString(),
+    score_percentage: `${percentage}%`,
+    to_email: userEmail,
+    pdf_link: reportLink // This is your custom link now
+  };
+
+  console.log("📧 Sending email with data:", emailData);
+
+  emailjs.send("service_a9z9syt", "template_f2nreet", emailData)
+    .then(response => {
+      console.log("✅ Email sent:", response);
+      alert("✅ Quiz report link sent to your email!");
+      sendEmailBtn.style.display = "none";
+    })
+    .catch(err => {
+      console.error("❌ EmailJS error:", err);
+      alert("Failed to send email. Check console for details.");
     });
+});
 
     // Handle page back button
     pageBackBtn.addEventListener("click", () => {
@@ -376,6 +403,9 @@
     });
     
   </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 </body>
 </html>
+
 

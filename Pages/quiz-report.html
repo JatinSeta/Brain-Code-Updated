@@ -1,378 +1,546 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Quiz Results</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      background-color: #f4f4f4;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    h1 {
-      text-align: center;
-      margin: 20px;
-      color: #222;
-    }
-    .main-container {
-      display: flex;
-      justify-content: space-between;
-      padding: 20px;
-      flex: 1;
-    }
-    .result-wrapper {
-      flex: 3;
-    }
-    .result-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-    }
-    .pagination {
-      text-align: center;
-      margin-top: 20px;
-    }
-    .pagination button {
-      padding: 8px 14px;
-      margin: 0 5px;
-      background: #6366f1;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .pagination button:disabled {
-      background-color: #ccc;
-      cursor: not-allowed;
-    }
-    .result-card {
-      position: relative;
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      padding: 20px;
-      width: 300px;
-    }
-    .result-card h3 {
-      margin-bottom: 10px;
-    }
-    .result-card p {
-      margin: 5px 0;
-      color: #555;
-      word-wrap: break-word;
-    }
-    .result-actions {
-      margin-top: 15px;
-      text-align: right;
-    }
-    .result-actions button {
-      background: #34d399;
-      color: white;
-      border: none;
-      padding: 8px 12px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    .result-actions button:hover {
-      background: #28a745;
-    }
-    /* Badge styled and positioned top-right corner */
-    .badge {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      background: #34d399;
-      color: #064e3b;
-      padding: 5px 10px;
-      border-radius: 9999px;
-      font-size: 12px;
-      font-weight: bold;
-      user-select: none;
-    }
-    .category-sidebar {
-      flex: 1;
-      margin-left: 20px;
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      height: fit-content;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    .category-sidebar h2 {
-      font-size: 1.2rem;
-      margin-bottom: 15px;
-      color: #333;
-    }
-    .category-btn {
-      display: block;
-      width: 100%;
-      margin: 10px 0;
-      padding: 10px;
-      background: #e2e8f0;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      text-align: left;
-      font-size: 1rem;
-    }
-    .category-btn:hover {
-      background: #cbd5e1;
-    }
-    @media(max-width: 768px) {
-      .main-container {
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quiz Results</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        background-color: #f4f4f4;
+        display: flex;
         flex-direction: column;
+        min-height: 100vh;
       }
-      .category-sidebar {
-        margin: 0 auto 20px;
-        width: 90%;
+      h1 {
+        text-align: center;
+        margin: 20px;
+        color: #222;
+      }
+      .main-container {
+        display: flex;
+        justify-content: space-between;
+        padding: 20px;
+        flex: 1;
+      }
+      .result-wrapper {
+        flex: 3;
       }
       .result-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
         justify-content: center;
       }
-    }
-  </style>
-
-  <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-  <!-- jsPDF -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-</head>
-
-<body>
-  <h1>Quiz Results</h1>
-
-  <div class="main-container">
-    <div class="result-wrapper">
-      <div class="result-container" id="results">
-        <p>Select a category to view your results.</p>
-      </div>
-      <div class="pagination" id="pagination" style="display: none;">
-        <button id="prevBtn" onclick="prevPage()">Prev</button>
-        <button id="nextBtn" onclick="nextPage()">Next</button>
-      </div>
-    </div>
-
-    <div class="category-sidebar">
-      <h2>All Categories</h2>
-      <button class="category-btn" onclick="loadCategoryResults('All')">All Categories</button>
-      <button class="category-btn" onclick="loadCategoryResults('JavaScript')">JavaScript</button>
-      <button class="category-btn" onclick="loadCategoryResults('Java')">Java</button>
-      <button class="category-btn" onclick="loadCategoryResults('C')">C</button>
-      <button class="category-btn" onclick="loadCategoryResults('C++')">C++</button>
-      <button class="category-btn" onclick="loadCategoryResults('HTML')">HTML</button>
-    </div>
-  </div>
-
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyBtiBdHwYCV7vkHiuGZvHij7UxphP4g54E",
-      authDomain: "questionpro-99817.firebaseapp.com",
-      projectId: "questionpro-99817",
-      storageBucket: "questionpro-99817.appspot.com",
-      messagingSenderId: "70423030493",
-      appId: "1:70423030493:web:ae543436fc71bdab180934"
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-    const auth = firebase.auth();
-
-    const resultsDiv = document.getElementById("results");
-    const paginationDiv = document.getElementById("pagination");
-    const prevBtn = document.getElementById("prevBtn");
-    const nextBtn = document.getElementById("nextBtn");
-
-    let results = [];
-    let currentPage = 1;
-    const resultsPerPage = 4;
-
-    function renderResults() {
-      const start = (currentPage - 1) * resultsPerPage;
-      const end = start + resultsPerPage;
-      const paginatedResults = results.slice(start, end);
-
-      if (paginatedResults.length === 0) {
-        resultsDiv.innerHTML = "<p>No results to display on this page.</p>";
-        paginationDiv.style.display = "none";
-        return;
+      .pagination {
+        text-align: center;
+        margin-top: 20px;
       }
+      .pagination button {
+        padding: 8px 14px;
+        margin: 0 5px;
+        background: #6366f1;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .pagination button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .result-card {
+        position: relative;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        padding: 20px;
+        width: 300px;
+      }
+      .result-card h3 {
+        margin-bottom: 10px;
+      }
+      .result-card p {
+        margin: 5px 0;
+        color: #555;
+        word-wrap: break-word;
+      }
+      .result-actions {
+        margin-top: 15px;
+        text-align: right;
+      }
+      .result-actions button {
+        background: #34d399;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .result-actions button:hover {
+        background: #28a745;
+      }
+      /* Badge styled and positioned top-right corner */
+      .badge {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: #34d399;
+        color: #064e3b;
+        padding: 5px 10px;
+        border-radius: 9999px;
+        font-size: 12px;
+        font-weight: bold;
+        user-select: none;
+      }
+      .category-sidebar {
+        flex: 1;
+        margin-left: 20px;
+        background: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        height: fit-content;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      }
+      .category-sidebar h2 {
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        color: #333;
+      }
+      .category-btn {
+        display: block;
+        width: 100%;
+        margin: 10px 0;
+        padding: 10px;
+        background: #e2e8f0;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        text-align: left;
+        font-size: 1rem;
+      }
+      .category-btn:hover {
+        background: #cbd5e1;
+      }
+      @media(max-width: 768px) {
+        .main-container {
+          flex-direction: column;
+        }
+        .category-sidebar {
+          margin: 0 auto 20px;
+          width: 90%;
+        }
+        .result-container {
+          justify-content: center;
+        }
+      }
+    </style>
+ <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase SDKs -->
+      <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<!-- jsPDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="../index.css">
+  </head>
 
-      let html = '';
-      paginatedResults.forEach(data => {
-        html += `
-          <div class="result-card" data-id="${data.id}">
-            ${data.isNew ? '<span class="badge">New</span>' : ''}
-            <h3>Quiz Result</h3>
-            <p><strong>Email:</strong> ${data.email}</p>
-            <p><strong>Category:</strong> ${data.category}</p>
-            <p><strong>Score:</strong> ${data.score}</p>
-            <p><strong>Correct Answers:</strong> ${data.correctAnswers}</p>
-            <p><strong>Wrong Answers:</strong> ${data.wrongAnswers}</p>
-            <p><strong>Timestamp:</strong> ${data.timestamp?.toDate?.().toLocaleString() || "N/A"}</p>
-            <div class="result-actions">
-              <button onclick="downloadPDF(this)">Download PDF</button>
+  <body>
+     <nav class="bg-white shadow-sm sticky top-0 z-50 px-4 py-2">
+      <div class="flex justify-between items-center h-16">
+        <!-- Logo -->
+        <div class="flex items-center space-x-2">
+          <img src="../img/logo.png" alt="logo" class="w-10 h-10" />
+          <span
+            class="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#667eea] to-[#764ba2]"
+            >Brain Code</span
+          >
+        </div>
+
+        <!-- Desktop Menu -->
+        <div class="hidden md:flex space-x-6">
+          <a
+            href="../index.html"
+            class="text-gray-600 hover:text-purple-600 font-medium"
+            >Home</a
+          >
+          <a
+            href="../Pages/quiz-report.html"
+            class="text-gray-600 hover:text-purple-600 font-medium"
+            >Home</a
+          >
+       
+          <a
+            href="../Pages/About.html"
+            class="text-gray-600 hover:text-purple-600 font-medium"
+            >About</a
+          >
+          <a
+            href="../Pages/Contact.html"
+            class="text-gray-600 hover:text-purple-600 font-medium"
+            >Contact</a
+          >
+          <a
+            href="../Pages/quiz.html"
+            class="text-gray-600 hover:text-purple-600 font-medium"
+            >Quiz</a
+          >
+        </div>
+
+        <!-- Desktop Auth Buttons -->
+        <div class="hidden md:flex items-center space-x-4">
+          <button
+            id="sign-in-btn"
+            onclick="window.location.href='../Pages/login.html'"
+            class="btn-primary bg-purple-600 text-white px-4 py-2 rounded-lg font-medium"
+          >
+            Sign In
+          </button>
+
+          <div id="user-info" class="hidden relative">
+            <button
+              onclick="toggleUserDropdown()"
+              class="text-purple-700 font-semibold flex items-center gap-1"
+            >
+              <span id="user-name" class="italic text-gray-500"
+                ><div class="loader"></div
+              ></span>
+              <img id="arrow-icon" src="../img/drop-down.png" class="w-4 h-4" />
+            </button>
+            <div
+              id="user-dropdown"
+              class="hidden absolute right-0 mt-2 w-40 bg-white border rounded shadow z-50"
+            >
+              <button
+                onclick="logoutUser()"
+                class="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100"
+              >
+                Logout
+              </button>
+              <button
+                onclick="window.location.href='./Admin.html'"
+                id="admin-link"
+                class="px-4 py-2 text-gray-600 font-medium hover:text-purple-700"
+              >
+                Admin Panel
+              </button>
             </div>
           </div>
-        `;
-      });
+        </div>
 
-      resultsDiv.innerHTML = html;
-      prevBtn.disabled = currentPage === 1;
-      nextBtn.disabled = end >= results.length;
-      paginationDiv.style.display = "block";
-    }
+        <!-- Mobile Menu Button -->
+        <div class="md:hidden flex items-center">
+          <button onclick="toggleMobileMenu()" class="p-2">
+            <svg
+              class="w-6 h-6 text-gray-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
 
-    function nextPage() {
-      if (currentPage * resultsPerPage < results.length) {
-        currentPage++;
-        renderResults();
-      }
-    }
+      <!-- Mobile Dropdown Menu -->
+      <div
+        id="mobile-menu"
+        class="hidden md:hidden mt-2 space-y-2 bg-white border-t pt-2 px-4 pb-4"
+      >
+        <a
+          href="../index.html"
+          class="block text-gray-600 hover:text-purple-600"
+          >Home</a
+        >
+     
+        <a
+          href="../Pages/About.html"
+          class="block text-gray-600 hover:text-purple-600"
+          >About</a
+        >
+        <a
+          href="../Pages/Contact.html"
+          class="block text-gray-600 hover:text-purple-600"
+          >Contact</a
+        >
+        <a
+          href="../Pages/quiz.html"
+          class="block text-gray-600 hover:text-purple-600"
+          >Quiz</a
+        >
+<a
+  href="./Admin.html"
+  id="mobile-admin-link"
+  class="hidden block text-gray-600 hover:text-purple-600"
+>
+  Admin Panel
+</a>
+        <!-- Mobile Username -->
+        <div id="mobile-user-row" class="hidden flex justify-center">
+   
+          <span id="mobile-user-name" class="italic text-gray-500"
+            ><div class="loader"></div
+          ></span>
+        </div>
+        
+        <button
+          id="mobile-signin-btn"
+          onclick="window.location.href='../Pages/login.html'"
+          class="w-full btn-primary text-white py-3 rounded-lg font-semibold"
+          style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); transition: all 0.3s ease;"
+        >
+          Sign In
+        </button>
+      
+        <button
+          id="mobile-logout-btn"
+          onclick="logoutUser()"
+          class="hidden w-full text-red-600 py-2 hover:bg-gray-100"
+        >
+          Logout
+        </button>
+    
+      </div>
+    </nav>
 
-    function prevPage() {
-      if (currentPage > 1) {
-        currentPage--;
-        renderResults();
-      }
-    }
+    <h1>Quiz Results</h1>
 
-    async function loadCategoryResults(category) {
-      const user = firebase.auth().currentUser;
+    <div class="main-container">
+      <div class="result-wrapper">
+        <div class="result-container" id="results">
+          <p>Select a category to view your results.</p>
+        </div>
+        <div class="pagination" id="pagination" style="display: none;">
+          <button id="prevBtn" onclick="prevPage()">Prev</button>
+          <button id="nextBtn" onclick="nextPage()">Next</button>
+        </div>
+      </div>
 
-      if (!user) {
-        resultsDiv.innerHTML = "<p>You must be logged in to view your quiz results.</p>";
-        paginationDiv.style.display = "none";
-        return;
-      }
+      <div class="category-sidebar">
+        <h2>All Categories</h2>
+        <button class="category-btn" onclick="loadCategoryResults('All')">All Categories</button>
+        <button class="category-btn" onclick="loadCategoryResults('JavaScript')">JavaScript</button>
+        <button class="category-btn" onclick="loadCategoryResults('Java')">Java</button>
+        <button class="category-btn" onclick="loadCategoryResults('C')">C</button>
+        <button class="category-btn" onclick="loadCategoryResults('C++')">C++</button>
+        <button class="category-btn" onclick="loadCategoryResults('HTML')">HTML</button>
+      </div>
+    </div>
 
-      const email = user.email;
-      try {
-        let query = db.collection("quizResults").where("email", "==", email);
+    <script>
+      const params = new URLSearchParams(window.location.search);
+const email = params.get("email");
+const category = params.get("category");
+      const firebaseConfig = {
+        apiKey: "AIzaSyBtiBdHwYCV7vkHiuGZvHij7UxphP4g54E",
+        authDomain: "questionpro-99817.firebaseapp.com",
+        projectId: "questionpro-99817",
+        storageBucket: "questionpro-99817.appspot.com",
+        messagingSenderId: "70423030493",
+        appId: "1:70423030493:web:ae543436fc71bdab180934"
+      };
 
-        if (category !== 'All') {
-          query = query.where("category", "==", category);
-        }
+      firebase.initializeApp(firebaseConfig);
+      const db = firebase.firestore();
+      const auth = firebase.auth();
 
-        const snapshot = await query.get();
+      const resultsDiv = document.getElementById("results");
+      const paginationDiv = document.getElementById("pagination");
+      const prevBtn = document.getElementById("prevBtn");
+      const nextBtn = document.getElementById("nextBtn");
 
-        if (snapshot.empty) {
-          resultsDiv.innerHTML = `<p>No results found${category !== 'All' ? ' for category: <strong>' + category + '</strong>' : ''}.</p>`;
+      let results = [];
+      let currentPage = 1;
+      const resultsPerPage = 4;
+
+      function renderResults() {
+        const start = (currentPage - 1) * resultsPerPage;
+        const end = start + resultsPerPage;
+        const paginatedResults = results.slice(start, end);
+
+        if (paginatedResults.length === 0) {
+          resultsDiv.innerHTML = "<p>No results to display on this page.</p>";
           paginationDiv.style.display = "none";
           return;
         }
 
-        results = [];
-        currentPage = 1;
-
-        snapshot.forEach(doc => {
-          let data = doc.data();
-          data.id = doc.id;  // Store doc ID
-          results.push(data);
+        let html = '';
+        paginatedResults.forEach(data => {
+          html += `
+            <div class="result-card" data-id="${data.id}">
+              ${data.isNew ? '<span class="badge">New Report</span>' : ''}
+              <h3>Quiz Result</h3>
+              <p><strong>Email:</strong> ${data.email}</p>
+              <p><strong>Category:</strong> ${data.category}</p>
+              <p><strong>Score:</strong> ${data.score}</p>
+              <p><strong>Correct Answers:</strong> ${data.correctAnswers}</p>
+              <p><strong>Wrong Answers:</strong> ${data.wrongAnswers}</p>
+              <p><strong>Timestamp:</strong> ${data.timestamp?.toDate?.().toLocaleString() || "N/A"}</p>
+              <div class="result-actions">
+                <button onclick="downloadPDF(this)">Download PDF</button>
+              </div>
+            </div>
+          `;
         });
 
-        // Mark the latest result as 'New'
-        // Sort by timestamp descending first
-        results.sort((a, b) => {
-          const aTime = a.timestamp?.toDate?.()?.getTime() || 0;
-          const bTime = b.timestamp?.toDate?.()?.getTime() || 0;
-          return bTime - aTime;
-        });
+        resultsDiv.innerHTML = html;
+        prevBtn.disabled = currentPage === 1;
+        nextBtn.disabled = end >= results.length;
+        paginationDiv.style.display = "block";
+      }
 
-        // Mark only the latest result(s) as isNew = true
-        if (results.length > 0) {
-          // Clear all isNew
-          results.forEach(r => r.isNew = false);
+      function nextPage() {
+        if (currentPage * resultsPerPage < results.length) {
+          currentPage++;
+          renderResults();
+        }
+      }
 
-          // Find latest timestamp
-          const latestTimestamp = results[0].timestamp?.toDate?.().getTime();
+      function prevPage() {
+        if (currentPage > 1) {
+          currentPage--;
+          renderResults();
+        }
+      }
 
-          // Mark all results with latestTimestamp as new (handle ties)
-          results.forEach(r => {
-            if (r.timestamp?.toDate?.().getTime() === latestTimestamp) {
-              r.isNew = true;
-            }
-          });
+      async function loadCategoryResults(category) {
+        const user = firebase.auth().currentUser;
+
+        if (!user) {
+          resultsDiv.innerHTML = "<p>You must be logged in to view your quiz results.</p>";
+          paginationDiv.style.display = "none";
+          return;
         }
 
-        renderResults();
-
-      } catch (error) {
-        resultsDiv.innerHTML = `<p>Error loading results: ${error.message}</p>`;
-        paginationDiv.style.display = "none";
-      }
-    }
-
-    async function downloadPDF(buttonElement) {
-      const resultCard = buttonElement.closest('.result-card');
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-
-      // Extract text from card (excluding "New" badge)
-      const email = resultCard.querySelector("p:nth-of-type(1)").innerText;
-      const category = resultCard.querySelector("p:nth-of-type(2)").innerText;
-      const score = resultCard.querySelector("p:nth-of-type(3)").innerText;
-      const correctAnswers = resultCard.querySelector("p:nth-of-type(4)").innerText;
-      const wrongAnswers = resultCard.querySelector("p:nth-of-type(5)").innerText;
-      const timestamp = resultCard.querySelector("p:nth-of-type(6)").innerText;
-
-      // Write content to PDF
-      let y = 20;
-      doc.setFontSize(18);
-      doc.text("Quiz Result", 105, y, null, null, "center");
-      y += 10;
-      doc.setFontSize(12);
-      doc.text(email, 20, y);
-      y += 8;
-      doc.text(category, 20, y);
-      y += 8;
-      doc.text(score, 20, y);
-      y += 8;
-      doc.text(correctAnswers, 20, y);
-      y += 8;
-      doc.text(wrongAnswers, 20, y);
-      y += 8;
-      doc.text(timestamp, 20, y);
-
-      doc.save("quiz-result.pdf");
-
-      // Now update Firestore to remove isNew for this doc
-      const docId = resultCard.getAttribute('data-id');
-      if (docId) {
+        const email = user.email;
         try {
-          await db.collection("quizResults").doc(docId).update({
-            isNew: false
-          });
-          // Remove "New" badge from UI
-          const badge = resultCard.querySelector(".badge");
-          if (badge) badge.remove();
+          let query = db.collection("quizResults").where("email", "==", email);
 
-          // Also update the results array so badge doesn't reappear on re-render
-          const resultIndex = results.findIndex(r => r.id === docId);
-          if (resultIndex > -1) {
-            results[resultIndex].isNew = false;
+          if (category !== 'All') {
+            query = query.where("category", "==", category);
           }
+
+          const snapshot = await query.get();
+
+          if (snapshot.empty) {
+            resultsDiv.innerHTML = `<p>No results found${category !== 'All' ? ' for category: <strong>' + category + '</strong>' : ''}.</p>`;
+            paginationDiv.style.display = "none";
+            return;
+          }
+
+          results = [];
+          currentPage = 1;
+
+          snapshot.forEach(doc => {
+            let data = doc.data();
+            data.id = doc.id;  // Store doc ID
+            results.push(data);
+          });
+
+          // Mark the latest result as 'New'
+          // Sort by timestamp descending first
+          results.sort((a, b) => {
+            const aTime = a.timestamp?.toDate?.()?.getTime() || 0;
+            const bTime = b.timestamp?.toDate?.()?.getTime() || 0;
+            return bTime - aTime;
+          });
+
+          // Mark only the latest result(s) as isNew = true
+          if (results.length > 0) {
+            // Clear all isNew
+            results.forEach(r => r.isNew = false);
+
+            // Find latest timestamp
+            const latestTimestamp = results[0].timestamp?.toDate?.().getTime();
+
+            // Mark all results with latestTimestamp as new (handle ties)
+            results.forEach(r => {
+              if (r.timestamp?.toDate?.().getTime() === latestTimestamp) {
+                r.isNew = true;
+              }
+            });
+          }
+
+          renderResults();
+
         } catch (error) {
-          console.error("Error updating isNew field:", error);
+          resultsDiv.innerHTML = `<p>Error loading results: ${error.message}</p>`;
+          paginationDiv.style.display = "none";
         }
       }
-    }
 
-    // Load all results by default on auth state change
-    auth.onAuthStateChanged(user => {
-      if (user) {
-        loadCategoryResults('All');
-      } else {
-        resultsDiv.innerHTML = '<p>Please log in to view your quiz results.</p>';
-        paginationDiv.style.display = "none";
+      async function downloadPDF(buttonElement) {
+        const resultCard = buttonElement.closest('.result-card');
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Extract text from card (excluding "New" badge)
+        const email = resultCard.querySelector("p:nth-of-type(1)").innerText;
+        const category = resultCard.querySelector("p:nth-of-type(2)").innerText;
+        const score = resultCard.querySelector("p:nth-of-type(3)").innerText;
+        const correctAnswers = resultCard.querySelector("p:nth-of-type(4)").innerText;
+        const wrongAnswers = resultCard.querySelector("p:nth-of-type(5)").innerText;
+        const timestamp = resultCard.querySelector("p:nth-of-type(6)").innerText;
+
+        // Write content to PDF
+        let y = 20;
+        doc.setFontSize(18);
+        doc.text("Quiz Result", 105, y, null, null, "center");
+        y += 10;
+        doc.setFontSize(12);
+        doc.text(email, 20, y);
+        y += 8;
+        doc.text(category, 20, y);
+        y += 8;
+        doc.text(score, 20, y);
+        y += 8;
+        doc.text(correctAnswers, 20, y);
+        y += 8;
+        doc.text(wrongAnswers, 20, y);
+        y += 8;
+        doc.text(timestamp, 20, y);
+
+        doc.save("quiz-result.pdf");
+
+        // Now update Firestore to remove isNew for this doc
+        const docId = resultCard.getAttribute('data-id');
+        if (docId) {
+          try {
+            await db.collection("quizResults").doc(docId).update({
+              isNew: false
+            });
+            // Remove "New" badge from UI
+            const badge = resultCard.querySelector(".badge");
+            if (badge) badge.remove();
+
+            // Also update the results array so badge doesn't reappear on re-render
+            const resultIndex = results.findIndex(r => r.id === docId);
+            if (resultIndex > -1) {
+              results[resultIndex].isNew = false;
+            }
+          } catch (error) {
+            console.error("Error updating isNew field:", error);
+          }
+        }
       }
-    });
-  </script>
-</body>
-</html>
+
+      // Load all results by default on auth state change
+      auth.onAuthStateChanged(user => {
+        if (user) {
+          loadCategoryResults('All');
+        } else {
+          resultsDiv.innerHTML = '<p>Please log in to view your quiz results.</p>';
+          paginationDiv.style.display = "none";
+        }
+      });
+    </script>
+    <script src="../index.js"></script>
+  </body>
+  </html>
